@@ -38,8 +38,8 @@ jobs:
       MAX_MESSAGES_PER_RUN: ${{ vars.MAX_MESSAGES_PER_RUN }}
       MAX_OMDB_REQUESTS_PER_RUN: ${{ vars.MAX_OMDB_REQUESTS_PER_RUN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -66,7 +66,7 @@ jobs:
         run: node scripts/github-state.js checkpoint
       - name: Upload preview
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: movie-preview
           path: output/preview.json
