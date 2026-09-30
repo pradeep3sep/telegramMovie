@@ -14,7 +14,10 @@
     "check": "node scripts/check.js",
     "telegram:setup": "node scripts/telegram-setup.js",
     "status": "node scripts/status.js",
-    "resolve-delivery": "node scripts/resolve-delivery.js"
+    "resolve-delivery": "node scripts/resolve-delivery.js",
+    "setup": "node scripts/setup-local.js",
+    "local:test": "node scripts/local.js --test",
+    "local": "node scripts/local.js"
   },
   "dependencies": {
     "cheerio": "1.0.0",

@@ -20,15 +20,30 @@ Default source: https://vegamovis.baby/
 
 Use Node.js 20.13+ (GitHub Actions uses Node.js 22).
 
-1. Run `npm ci`.
-2. Copy `.env.example` to `.env`.
-3. Create the Telegram bot as described below.
-4. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env`.
-5. Optionally set `OMDB_API_KEY`.
-6. Run `npm run dry-run` and inspect `output/preview.json`. This sends nothing and leaves posting history unchanged.
-7. Run `npm start` to send one cycle.
+1. Open a terminal in the project folder and run `npm ci`.
+2. Run `npm run setup` to create `.env`, `data`, and `output`. An existing `.env` is preserved.
+3. Edit `.env`: fill in `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. `OMDB_API_KEY` is optional.
+4. Run `npm run dry-run` to inspect a live sample without sending. Results are printed and saved in `output/preview.json`.
+5. Run `npm run local:test` to send **at most one movie** and verify Telegram. It uses normal posting history, so a successful test is not resent by subsequent local runs.
+6. Run `npm start` for a full cycle, or `npm run local` to repeat cycles locally every six hours.
 
-The local script runs once and exits. GitHub Actions schedules recurring runs. Keep `.env` private; it is excluded from Git.
+Example on Windows:
+
+```powershell
+cd D:\movie-telegram-bot
+npm run setup
+npm run dry-run
+# After filling and saving .env:
+npm run local:test
+# To keep running every six hours:
+npm run local
+```
+
+`npm run local` runs immediately, then waits until the next six-hour interval. Keep the computer awake and terminal open; press Ctrl+C to stop. Failed cycles retain progress and are tried again at the next interval. Cycles do not overlap.
+
+Use `LOCAL_INTERVAL_HOURS` in `.env` to change the local interval. `MAX_MESSAGES_PER_RUN` and the page limits control full cycles; `local:test` temporarily limits the cycle to one post and one catalog page.
+
+Your `.env`, local posting history, and preview output are excluded from Git. GitHub Actions uses repository secrets, not your local `.env`. Local and GitHub histories are separate: do not run both against the same group unless their history is synchronized.
 
 ### Telegram bot and group ID
 
