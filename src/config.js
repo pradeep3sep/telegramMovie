@@ -28,6 +28,7 @@ export async function loadConfig(env = process.env) {
   return {
     sources,
     statePath: resolve(env.STATE_PATH || 'data/state.json'),
+    approvalChatId: env.TELEGRAM_APPROVAL_CHAT_ID?.trim(),
     token: env.TELEGRAM_BOT_TOKEN?.trim(),
     chatId: env.TELEGRAM_CHAT_ID?.trim(),
     threadId: env.TELEGRAM_THREAD_ID?.trim() || undefined,

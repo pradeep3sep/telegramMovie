@@ -21,15 +21,17 @@ export function checkpoint(dir) {
   git(dir, ['push', '--quiet', 'origin', 'HEAD:movie-bot-state']);
 }
 export function createDurableSaver(path, gitDir) {
-  let previousPending = null, lastCheckpoint = 0;
+  let previousPending = null, previousApprovals = null, lastCheckpoint = 0;
   return async state => {
     await saveState(path, state);
     if (!gitDir) return;
     const pending = state.pendingDelivery?.itemId || null;
     // Save the intent before Telegram and confirmation immediately afterwards.
-    if (pending !== previousPending || Date.now() - lastCheckpoint > 60000) {
+    const approvals = JSON.stringify(Object.values(state.items).filter(item => item.approval).map(item => item.approval));
+    if (approvals !== previousApprovals || pending !== previousPending || Date.now() - lastCheckpoint > 60000) {
       checkpoint(gitDir);
       previousPending = pending;
+      previousApprovals = approvals;
       lastCheckpoint = Date.now();
     }
   };

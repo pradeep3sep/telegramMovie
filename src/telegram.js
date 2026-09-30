@@ -2,8 +2,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { formatRating } from './rating.js';
 
 export class TelegramError extends Error {
-  constructor(code, description) {
-    super('Telegram rejected the request (code ' + code + ').');
+  constructor(code, description, method) {
+    super('Telegram rejected ' + (method || 'the request') + ' (code ' + code + ')' + (description ? ': ' + description : '.'));
     this.code = code;
     this.description = description || '';
   }
@@ -62,12 +62,20 @@ export class TelegramClient {
       // A server-side failure can happen after a successful send; do not retry blindly.
       if (response.status >= 500) throw new UncertainDeliveryError();
       if (body.ok) return body.result;
+      // Telegram explicitly rejected the old group ID, so retry with its replacement.
+      const migratedId = body.parameters?.migrate_to_chat_id;
+      if (body.error_code === 400 && Number.isSafeInteger(migratedId) && data.chat_id && attempt < 3) {
+        this.chatId = String(migratedId);
+        data = { ...data, chat_id: this.chatId };
+        continue;
+      }
       if ((body.error_code === 429 || response.status === 429) && attempt < 3) {
         const seconds = Number(body.parameters?.retry_after);
         await this.sleep((Number.isFinite(seconds) ? Math.max(seconds, 1) : 10) * 1000 + 250);
         continue;
       }
-      throw new TelegramError(body.error_code || response.status, body.description);
+      const description = String(body.description || '').split(this.token).join('[redacted]');
+      throw new TelegramError(body.error_code || response.status, description, method);
     }
   }
   async verify() {
@@ -85,8 +93,10 @@ export class TelegramClient {
           !/title is not modified|chat_not_modified/i.test(error.description)) throw error;
     }
   }
-  async send(movie) {
+  async send(movie, { extraButtons = [], captionSuffix = '' } = {}) {
     const formatted = formatPost(movie);
+    formatted.caption += captionSuffix;
+    if (extraButtons.length) formatted.reply_markup.inline_keyboard.push(extraButtons);
     const common = {
       chat_id: this.chatId, parse_mode: 'HTML',
       reply_markup: formatted.reply_markup,

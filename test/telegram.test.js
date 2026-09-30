@@ -111,3 +111,32 @@ test('an already matching group title is accepted and private chats are skipped'
   await client.renameGroup(movie.title);
   assert.equal(calls, 1);
 });
+
+
+test('upgraded group retries with the supergroup ID and uses it for later calls', async () => {
+  const calls = [];
+  const client = new TelegramClient({ token: 'test', chatId: '-123' }, {
+    fetchImpl: async (url, init) => {
+      calls.push({ method: url.split('/').at(-1), body: JSON.parse(init.body) });
+      if (calls.length === 1) return response(400, { ok: false, error_code: 400,
+        description: 'Bad Request: group chat was upgraded to a supergroup chat',
+        parameters: { migrate_to_chat_id: -100123 } });
+      return response(200, { ok: true, result: { message_id: 10 } });
+    }
+  });
+  assert.equal((await client.send(movie)).message_id, 10);
+  await client.renameGroup(movie.title);
+  assert.deepEqual(calls.map(call => call.body.chat_id), ['-123', '-100123', '-100123']);
+  assert.deepEqual(calls.map(call => call.method), ['sendPhoto', 'sendPhoto', 'setChatTitle']);
+});
+
+test('Telegram error identifies the method and reason without exposing the token', async () => {
+  const client = new TelegramClient({ token: 'secret-token', chatId: '-123' }, {
+    fetchImpl: async () => response(400, { ok: false, error_code: 400, description: 'Bad Request: secret-token invalid chat' })
+  });
+  await assert.rejects(client.verify(), error => {
+    assert.match(error.message, /getMe.*400.*invalid chat/);
+    assert.equal(error.message.includes('secret-token'), false);
+    return true;
+  });
+});

@@ -18,6 +18,12 @@ Default source: https://vegamovis.baby/
 - Reads HTML without executing advertising scripts or opening popups.
 - Copies download-button URLs as published. Some are intermediary links; it does not bypass their redirects, CAPTCHAs, logins, or waiting pages.
 
+## Private approval before publishing
+
+Every live movie, including local tests, requires your private Telegram approval. Send /start to the bot in a private chat, run `npm run approval:setup`, and set the reported `TELEGRAM_APPROVAL_CHAT_ID` in .env (and GitHub Actions secrets if used). Only that account can approve or reject.
+
+The bot sends a movie preview with Approve and Reject buttons. Approve publishes to the group and then updates its name; Reject skips that listing. After either decision, the private approval message is deleted. Failed cleanup is retried on later runs; messages older than Telegram’s 48-hour deletion limit have their buttons removed. Many movies can wait in the saved queue; one approval request is shown at a time. Keep `npm run local` running for automatic delivery when you tap. Test runs wait up to their five-minute runtime, preserving pending approvals in a separate state.json.test.json file. If the process stops or its runtime expires, run it again to resume. Scheduled GitHub runs process responses while running or at the next run. Telegram retains unconsumed updates for up to 24 hours, so respond and resume within that window. Use one running instance of this dedicated bot; another update consumer can steal button responses. No movie is published when approval is missing.
+
 ## Local setup
 
 Use Node.js 20.13+ (GitHub Actions uses Node.js 22).
@@ -26,7 +32,7 @@ Use Node.js 20.13+ (GitHub Actions uses Node.js 22).
 2. Run `npm run setup` to create `.env`, `data`, and `output`. An existing `.env` is preserved.
 3. Edit `.env`: fill in `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. `OMDB_API_KEY` is optional.
 4. Run `npm run dry-run` to inspect a live sample without sending. Results are printed and saved in `output/preview.json`.
-5. Run `npm run local:test` to send **at most one movie** and verify Telegram. It uses normal posting history, so a successful test is not resent by subsequent local runs.
+5. Run `npm run local:test` to request approval for **one movie** and verify Telegram. After you approve, it publishes one movie. Completed tests use fresh history on the next invocation, allowing repeats without changing normal posting history. Pending approvals resume. If no eligible movie is available or delivery fails, the command reports an error. `npm run local:testit` is an alias.
 6. Run `npm start` for a full cycle, or `npm run local` to repeat cycles locally every six hours.
 
 Example on Windows:
@@ -72,6 +78,7 @@ Ratings are displayed as `IMDb : 8/10`, without a provider label. External resul
 1. Push the project to `main`.
 2. Under **Settings → Secrets and variables → Actions → Secrets**, add:
    - `TELEGRAM_BOT_TOKEN` — required
+   - `TELEGRAM_APPROVAL_CHAT_ID` — required; your private chat ID
    - `TELEGRAM_CHAT_ID` — required
    - `TELEGRAM_THREAD_ID` — optional
    - `OMDB_API_KEY` — optional

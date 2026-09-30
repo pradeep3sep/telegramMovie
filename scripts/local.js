@@ -27,7 +27,7 @@ async function main() {
         MAX_RUNTIME_MINUTES: '5'
       } : {})
     };
-    child = spawn(process.execPath, [fileURLToPath(new URL('../src/index.js', import.meta.url))], {
+    child = spawn(process.execPath, [fileURLToPath(new URL('../src/index.js', import.meta.url)), ...(testMode ? ['--test-send'] : [])], {
       cwd: process.cwd(), env, stdio: 'inherit', windowsHide: true
     });
     child.once('error', reject);
@@ -35,7 +35,7 @@ async function main() {
   });
   try {
     if (testMode) {
-      console.log('Local Telegram test: at most one movie will be posted using the normal saved history.');
+      console.log('Local Telegram test: one movie will be sent after your private Telegram approval. Pending approvals resume on the next run.');
       await cycle();
     } else {
       console.log('Running locally every ' + hours + ' hours. Keep this terminal open; press Ctrl+C to stop.');

@@ -12,11 +12,13 @@
     "dry-run": "node src/index.js --dry-run",
     "test": "node --test",
     "check": "node scripts/check.js",
+    "approval:setup": "node scripts/approval-setup.js",
     "telegram:setup": "node scripts/telegram-setup.js",
     "status": "node scripts/status.js",
     "resolve-delivery": "node scripts/resolve-delivery.js",
     "setup": "node scripts/setup-local.js",
     "local:test": "node scripts/local.js --test",
+    "local:testit": "node scripts/local.js --test",
     "local": "node scripts/local.js"
   },
   "dependencies": {

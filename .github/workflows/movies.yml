@@ -29,6 +29,7 @@ jobs:
     timeout-minutes: 180
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_APPROVAL_CHAT_ID: ${{ secrets.TELEGRAM_APPROVAL_CHAT_ID }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
       OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}

@@ -5,14 +5,16 @@ import { confirmDelivery } from './state.js';
 
 export async function runCycle(config, state, {
   dryRun = false, save = async () => {}, get = getText,
-  telegram, metadata, sleepImpl = sleep, log = console.log,
+  telegram, approval, metadata, sleepImpl = sleep, log = console.log,
   now = () => Date.now(), previewLimit = 3
 } = {}) {
   if (state.pendingDelivery) throw new Error('An earlier Telegram delivery needs confirmation. Check the group, then use the workflow recovery option or npm run resolve-delivery.');
+  if (!dryRun && config.approvalChatId && !approval) throw new Error('Approval client is required before group delivery.');
+  if (!dryRun && approval?.cleanupDecided) await approval.cleanupDecided(state, { save, log });
   const started = now();
   const deadline = started + config.runtimeMs;
   const withinBudget = () => now() < deadline - 60000;
-  const summary = { discovered: 0, filtered: 0, sent: 0, duplicates: 0, failed: 0, previewed: 0, pages: 0 };
+  const summary = { discovered: 0, filtered: 0, sent: 0, duplicates: 0, failed: 0, previewed: 0, pages: 0, awaitingApproval: 0, rejected: 0 };
   const preview = [];
   let scrapeErrors = 0;
 
@@ -138,6 +140,16 @@ export async function runCycle(config, state, {
       preview.push(movie);
       summary.previewed++;
       continue;
+    }
+    if (approval) {
+      const decision = await approval.decide(movie, item, state, { save, deadline, now, log });
+      if (!decision) { summary.awaitingApproval++; break; }
+      if (decision !== 'approved') {
+        item.status = 'rejected';
+        summary.rejected++;
+        await save(state);
+        continue;
+      }
     }
     // Write the intent before sending. If the process dies, do not send this movie twice.
     state.pendingDelivery = { itemId: id, keys, title: movie.title, year: movie.year, startedAt: new Date(now()).toISOString() };
