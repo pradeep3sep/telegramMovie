@@ -28,6 +28,7 @@ test('photo rejection falls back to text, preserving all buttons', async () => {
       if (methods.length === 1) return response(400, { ok: false, error_code: 400, description: 'Bad Request: failed to get HTTP URL content' });
       const body = JSON.parse(init.body);
       assert.equal(body.reply_markup.inline_keyboard[0][0].url, movie.links[0].url);
+      assert.equal(init.body.includes(movie.url), false);
       return response(200, { ok: true, result: { message_id: 3 } });
     }
   });
@@ -52,5 +53,11 @@ test('captions escape titles and keep link options as buttons', () => {
   const post = formatPost(movie);
   assert.match(post.caption, /Example &amp; Journey/);
   assert.ok(post.caption.length < 1024);
-  assert.equal(post.reply_markup.inline_keyboard.length, 2);
+  assert.equal(post.reply_markup.inline_keyboard.length, 1);
+  assert.equal(JSON.stringify(post).includes(movie.url), false);
+  assert.equal(post.caption.includes('source page'), false);
+  const withImdb = formatPost({ ...movie, imdbId: 'tt1234567', links: Array.from({ length: 25 }, (_, i) => ({ label: 'Download ' + i, url: 'https://files.example/' + i })) });
+  assert.equal(JSON.stringify(withImdb).includes(movie.url), false);
+  assert.equal(withImdb.caption.includes('source page'), false);
+  assert.deepEqual(withImdb.reply_markup.inline_keyboard.at(-1), [{ text: 'IMDb', url: 'https://www.imdb.com/title/tt1234567/' }]);
 });

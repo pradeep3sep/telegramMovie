@@ -10,6 +10,7 @@ Default source: https://vegamovis.baby/
 - Checks recent pages while the initial import continues, then rotates through the catalog to catch backdated additions.
 - Reads actual Hindi/English audio metadata; ignores language mentions in boilerplate.
 - Includes the available resolutions and hosts. Duplicate button URLs are consolidated.
+- Telegram posts omit the source-page link.
 - Excludes episodic shows and explicit adult videos because this is a movie notifier.
 - Uses source ratings and optionally enriches metadata through OMDb. Missing ratings are displayed as **Not available**, never invented.
 - Tracks sent movies by normalized title/year and IMDb ID when available, avoiding reposts for another release quality.

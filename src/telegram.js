@@ -22,13 +22,11 @@ export function formatPost(movie) {
     'IMDb rating: ' + escape(rating) +
     (movie.ratingSource ? ' · ' + escape(movie.ratingSource) : '') +
     '\n\nChoose a download option below.' +
-    (movie.links.length > 24 ? '\nMore options are available on the source page.' : '');
+    (movie.links.length > 24 ? '\nShowing the first 24 download options.' : '');
   const buttons = movie.links.slice(0, 24).map(link => ({ text: link.label, url: link.url }));
   const rows = [];
   for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
-  const footer = [{ text: 'Source page', url: movie.url }];
-  if (movie.imdbId) footer.push({ text: 'IMDb', url: 'https://www.imdb.com/title/' + movie.imdbId + '/' });
-  rows.push(footer);
+  if (movie.imdbId) rows.push([{ text: 'IMDb', url: 'https://www.imdb.com/title/' + movie.imdbId + '/' }]);
   return { caption, reply_markup: { inline_keyboard: rows } };
 }
 
