@@ -44,3 +44,11 @@ test('missing buttons remain retryable instead of producing incomplete notificat
   const html = '<h1 class="entry-title">Example (2024) Hindi</h1><div class="entry-content"><p>Languages: Hindi</p></div>';
   assert.throws(() => parseMovie(html, base), /No download buttons/);
 });
+
+test('missing and zero source ratings stay unavailable instead of using the denominator as a score', () => {
+  for (const value of ['0/10', '0.0/10', 'N/A', 'N/A /10', '']) {
+    const html = detail.replace('7.3/10', value);
+    assert.equal(parseMovie(html, base + 'journey-2024/').rating, null);
+  }
+  assert.equal(parseMovie(detail.replace('7.3/10', '10/10'), base).rating, '10');
+});

@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { loadConfig } from './config.js';
+import { formatRating } from './rating.js';
 import { readState, acquireLock } from './state.js';
 import { runCycle } from './runner.js';
 import { TelegramClient } from './telegram.js';
@@ -30,7 +31,7 @@ async function main() {
       await writeFile('output/preview.json', JSON.stringify(result.preview, null, 2) + '\n');
       for (const movie of result.preview) {
         console.log('\n' + movie.title + (movie.year ? ' (' + movie.year + ')' : ''));
-        console.log('  Audio: ' + movie.languages.join(', ') + ' | IMDb: ' + (movie.rating ? movie.rating + '/10' : 'Not available'));
+        console.log('  Audio: ' + movie.languages.join(', ') + ' | IMDb : ' + formatRating(movie.rating));
         console.log('  Poster: ' + (movie.poster ? 'available' : 'not available') + ' | Download options: ' + movie.links.length);
       }
       console.log('Preview written to output/preview.json. No Telegram messages or posting history were changed.');

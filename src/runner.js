@@ -16,6 +16,20 @@ export async function runCycle(config, state, {
   const preview = [];
   let scrapeErrors = 0;
 
+  async function updateGroupTitle() {
+    if (dryRun || !state.pendingGroupTitle) return;
+    try {
+      await telegram.renameGroup(state.pendingGroupTitle);
+    } catch (error) {
+      log('Group title update failed' + (error.code ? ' (Telegram code ' + error.code + ')' : '') +
+        '; it will be retried. Give the bot admin permission to change group information.');
+      return;
+    }
+    delete state.pendingGroupTitle;
+    await save(state);
+  }
+  await updateGroupTitle();
+
   async function scan(source, initialUrl, limit, stopAtKnown) {
     let url = initialUrl, knownStreak = 0;
     const visited = new Set();
@@ -139,8 +153,10 @@ export async function runCycle(config, state, {
       throw error;
     }
     confirmDelivery(state, result.message_id);
+    state.pendingGroupTitle = movie.title;
     summary.sent++;
     await save(state);
+    await updateGroupTitle();
     log('Posted: ' + movie.title + (movie.year ? ' (' + movie.year + ')' : ''));
     await sleepImpl(config.telegramDelay);
   }

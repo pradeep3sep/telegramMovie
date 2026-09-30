@@ -15,7 +15,8 @@ const config = {
 function dependencies(extra = {}) {
   return {
     get: async url => url === source.url ? listing : detail,
-    sleepImpl: async () => {}, log: () => {}, save: async () => {}, ...extra
+    sleepImpl: async () => {}, log: () => {}, save: async () => {}, ...extra,
+    ...(extra.telegram ? { telegram: { renameGroup: async () => {}, ...extra.telegram } } : {})
   };
 }
 test('second cycle does not repost a previously sent movie', async () => {
@@ -76,4 +77,56 @@ test('scraper failure is visible and does not finish the initial catalog', async
   const state = emptyState();
   await assert.rejects(runCycle(config, state, dependencies({ get: async () => '<h1>Blocked</h1>' })), /failed scan/);
   assert.equal(state.sources[source.url].backfillDone, false);
+});
+
+test('renames after a confirmed saved post and never again for duplicates', async () => {
+  const state = emptyState(), events = [];
+  const deps = dependencies({
+    telegram: {
+      send: async () => { events.push('send'); return { message_id: 7 }; },
+      renameGroup: async title => {
+        assert.equal(state.pendingDelivery, null);
+        assert.equal(Object.values(state.items).filter(item => item.status === 'sent').length, 1);
+        events.push(title);
+      }
+    },
+    save: async s => { if (s.pendingGroupTitle) events.push('saved'); }
+  });
+  await runCycle(config, state, deps);
+  await runCycle(config, state, deps);
+  assert.deepEqual(events, ['send', 'saved', 'The Journey']);
+  assert.equal(state.pendingGroupTitle, undefined);
+});
+
+test('failed rename is persisted and retried without reposting', async () => {
+  const state = emptyState();
+  let sends = 0, renames = 0;
+  const deps = dependencies({
+    telegram: {
+      send: async () => ({ message_id: ++sends }),
+      renameGroup: async () => {
+        if (++renames === 1) throw new TelegramError(403, 'Forbidden');
+      }
+    }
+  });
+  await runCycle(config, state, deps);
+  assert.equal(state.pendingGroupTitle, 'The Journey');
+  assert.equal(state.pendingDelivery, null);
+  await runCycle(config, state, deps);
+  assert.equal(sends, 1);
+  assert.equal(renames, 2);
+  assert.equal(state.pendingGroupTitle, undefined);
+});
+
+test('preview preserves pending rename without calling Telegram', async () => {
+  const state = emptyState();
+  state.pendingGroupTitle = 'Previous Movie';
+  await runCycle(config, state, dependencies({
+    dryRun: true,
+    telegram: {
+      send: async () => assert.fail('preview sent a message'),
+      renameGroup: async () => assert.fail('preview renamed the group')
+    }
+  }));
+  assert.equal(state.pendingGroupTitle, 'Previous Movie');
 });

@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises';
+import { formatRating } from './rating.js';
 
 export class TelegramError extends Error {
   constructor(code, description) {
@@ -16,18 +17,26 @@ const escape = value => String(value || '').replace(/&/g, '&amp;').replace(/</g,
 
 export function formatPost(movie) {
   const heading = escape(movie.title.slice(0, 180)) + (movie.year ? ' (' + escape(movie.year) + ')' : '');
-  const rating = movie.rating ? movie.rating + '/10' : 'Not available';
+  const rating = formatRating(movie.rating);
   const caption = '<b>' + heading + '</b>\n\n' +
     'Audio: ' + escape(movie.languages.join(', ')) + '\n' +
-    'IMDb rating: ' + escape(rating) +
-    (movie.ratingSource ? ' · ' + escape(movie.ratingSource) : '') +
+    'IMDb : ' + escape(rating) +
     '\n\nChoose a download option below.' +
     (movie.links.length > 24 ? '\nShowing the first 24 download options.' : '');
   const buttons = movie.links.slice(0, 24).map(link => ({ text: link.label, url: link.url }));
   const rows = [];
   for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
-  if (movie.imdbId) rows.push([{ text: 'IMDb', url: 'https://www.imdb.com/title/' + movie.imdbId + '/' }]);
   return { caption, reply_markup: { inline_keyboard: rows } };
+}
+
+export function formatGroupTitle(movieTitle) {
+  const suffix = ' Latest Movie';
+  let title = '';
+  for (const character of String(movieTitle || '').replace(/\s+/g, ' ').trim()) {
+    if (title.length + character.length > 128 - suffix.length) break;
+    title += character;
+  }
+  return title.trimEnd() + suffix;
 }
 
 export class TelegramClient {
@@ -64,7 +73,17 @@ export class TelegramClient {
   async verify() {
     await this.call('getMe');
     const chat = await this.call('getChat', { chat_id: this.chatId });
+    this.chatType = chat.type;
     if (!['group', 'supergroup', 'channel', 'private'].includes(chat.type)) throw new Error('Unsupported Telegram destination.');
+  }
+  async renameGroup(movieTitle) {
+    if (this.chatType === 'private') return;
+    try {
+      await this.call('setChatTitle', { chat_id: this.chatId, title: formatGroupTitle(movieTitle) });
+    } catch (error) {
+      if (!(error instanceof TelegramError) || error.code !== 400 ||
+          !/title is not modified|chat_not_modified/i.test(error.description)) throw error;
+    }
   }
   async send(movie) {
     const formatted = formatPost(movie);

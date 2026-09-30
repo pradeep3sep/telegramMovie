@@ -1,4 +1,5 @@
 import { getText } from './http.js';
+import { normalizeRating } from './rating.js';
 
 const normalized = title => title.normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 export class MetadataClient {
@@ -10,7 +11,7 @@ export class MetadataClient {
     this.cache = new Map();
   }
   async enrich(movie) {
-    if (movie.rating && movie.imdbId && movie.poster) return movie;
+    if (normalizeRating(movie.rating) && movie.imdbId && movie.poster) return movie;
     if (!this.key || this.budget <= 0) return movie;
     const cacheKey = movie.imdbId || movie.title + ':' + movie.year;
     let data = this.cache.get(cacheKey);
@@ -42,13 +43,14 @@ export class MetadataClient {
     }
     if (!movie.imdbId && (normalized(data.Title || '') !== normalized(movie.title) ||
         (movie.year && String(data.Year) !== String(movie.year)))) return movie;
-    const value = Number(data.imdbRating);
+    const rating = normalizeRating(data.imdbRating);
+    const fallbackRating = normalizeRating(movie.rating);
     return {
       ...movie,
       imdbId: /^tt\d+$/.test(data.imdbID || '') ? data.imdbID : movie.imdbId,
       poster: movie.poster || (data.Poster?.startsWith('https://') ? data.Poster : null),
-      rating: Number.isFinite(value) && value >= 0 && value <= 10 ? String(value) : movie.rating,
-      ratingSource: Number.isFinite(value) && value >= 0 && value <= 10 ? 'OMDb / IMDb' : movie.ratingSource
+      rating: rating || fallbackRating,
+      ratingSource: rating ? 'OMDb / IMDb' : (fallbackRating ? movie.ratingSource : null)
     };
   }
 }

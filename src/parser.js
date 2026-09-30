@@ -1,4 +1,5 @@
 import { load } from 'cheerio';
+import { normalizeRating } from './rating.js';
 import { createHash } from 'node:crypto';
 
 export const compact = value => String(value || '').replace(/\s+/g, ' ').trim();
@@ -96,9 +97,8 @@ export function parseMovie(html, pageUrl, listing = {}) {
   const named = cleanTitle(metadataLine($, content, 'Title|Movie Name') || rawTitle);
   if (!named.title) throw new Error('Movie title is missing.');
   const ratingLine = metadataLine($, content, 'IMDB\\s*Ratings?|IMDb');
-  const ratingMatch = ratingLine.match(/\b(\d(?:\.\d+)?|10(?:\.0)?)\s*(?:\/\s*10)?/);
-  const ratingValue = ratingMatch ? Number(ratingMatch[1]) : NaN;
-  const rating = Number.isFinite(ratingValue) && ratingValue >= 0 && ratingValue <= 10 ? String(ratingValue) : null;
+  const ratingMatch = ratingLine.match(/^\s*(10(?:\.0+)?|[0-9](?:\.\d+)?)\s*(?:\/\s*10)?(?:\s|$)/);
+  const rating = normalizeRating(ratingMatch?.[1]);
   const imdbUrl = content.find('a[href*="imdb.com/title/"]').first().attr('href') || '';
   const imdbId = imdbUrl.match(/\btt\d{5,12}\b/)?.[0] || null;
   const firstImage = content.find('img').first();

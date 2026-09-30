@@ -59,5 +59,55 @@ test('captions escape titles and keep link options as buttons', () => {
   const withImdb = formatPost({ ...movie, imdbId: 'tt1234567', links: Array.from({ length: 25 }, (_, i) => ({ label: 'Download ' + i, url: 'https://files.example/' + i })) });
   assert.equal(JSON.stringify(withImdb).includes(movie.url), false);
   assert.equal(withImdb.caption.includes('source page'), false);
-  assert.deepEqual(withImdb.reply_markup.inline_keyboard.at(-1), [{ text: 'IMDb', url: 'https://www.imdb.com/title/tt1234567/' }]);
+  assert.equal(withImdb.reply_markup.inline_keyboard.length, 12);
+  assert.equal(JSON.stringify(withImdb).includes('imdb.com'), false);
+  assert.match(withImdb.caption, /Audio: Hindi, English\nIMDb : 7\.3\/10/);
+});
+
+test('missing, zero and invalid ratings render as Not available, including saved queue values', () => {
+  for (const rating of [undefined, null, '', ' ', 'N/A', 0, '0', '0.0', -1, 'invalid', 11]) {
+    const post = formatPost({ ...movie, rating });
+    assert.match(post.caption, /IMDb : Not available(?:\n|$)/);
+    assert.equal(post.caption.includes('IMDb : 0/10'), false);
+  }
+  assert.match(formatPost({ ...movie, rating: '8' }).caption, /IMDb : 8\/10/);
+});
+
+test('group rename uses the movie title and suffix without topic or message fields', async () => {
+  const client = new TelegramClient({ token: 'test', chatId: '-100123', threadId: '7' }, {
+    fetchImpl: async (url, init) => {
+      assert.ok(url.endsWith('/setChatTitle'));
+      assert.deepEqual(JSON.parse(init.body), { chat_id: '-100123', title: 'Example & Journey Latest Movie' });
+      return response(200, { ok: true, result: true });
+    }
+  });
+  await client.renameGroup(movie.title);
+});
+
+test('long Unicode group titles retain suffix and fit the limit', async () => {
+  const client = new TelegramClient({ token: 'test', chatId: '123' }, {
+    fetchImpl: async (url, init) => {
+      const { title } = JSON.parse(init.body);
+      assert.ok(title.length <= 128);
+      assert.ok(title.endsWith(' Latest Movie'));
+      assert.equal(title.includes('\uFFFD'), false);
+      assert.equal(/[\uD800-\uDBFF] Latest Movie$/.test(title), false);
+      return response(200, { ok: true, result: true });
+    }
+  });
+  await client.renameGroup('🎬'.repeat(100));
+});
+
+test('an already matching group title is accepted and private chats are skipped', async () => {
+  let calls = 0;
+  const client = new TelegramClient({ token: 'test', chatId: '123' }, {
+    fetchImpl: async () => {
+      calls++;
+      return response(400, { ok: false, error_code: 400, description: 'Bad Request: chat title is not modified' });
+    }
+  });
+  await client.renameGroup(movie.title);
+  client.chatType = 'private';
+  await client.renameGroup(movie.title);
+  assert.equal(calls, 1);
 });

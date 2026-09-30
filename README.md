@@ -11,6 +11,7 @@ Default source: https://vegamovis.baby/
 - Reads actual Hindi/English audio metadata; ignores language mentions in boilerplate.
 - Includes the available resolutions and hosts. Duplicate button URLs are consolidated.
 - Telegram posts omit the source-page link.
+- After each successful post, renames the group to `<Movie title> Latest Movie`. Long titles are shortened to fit Telegram’s limit while keeping the suffix. In a batch, the last posted movie determines the final group name. Failed renames are retried without reposting the movie; previews do not rename the group.
 - Excludes episodic shows and explicit adult videos because this is a movie notifier.
 - Uses source ratings and optionally enriches metadata through OMDb. Missing ratings are displayed as **Not available**, never invented.
 - Tracks sent movies by normalized title/year and IMDb ID when available, avoiding reposts for another release quality.
@@ -50,7 +51,7 @@ Your `.env`, local posting history, and preview output are excluded from Git. Gi
 
 1. Open https://t.me/BotFather and send `/newbot`.
 2. Choose a name and username; save the token privately.
-3. Add the bot to your group and allow it to send messages and photos. Admin status is needed only if your group restrictions require it.
+3. Add the bot to your group, allow messages/photos, and make it an administrator with **Change Group Info** permission so it can update the group name.
 4. Put the token in `.env`, then send `/start@YourBotUsername` in the group.
 5. Run `npm run telegram:setup`. It prints the chat ID without printing the token.
 6. Set `TELEGRAM_CHAT_ID` to that value. Supergroup IDs usually start with `-100`.
@@ -64,7 +65,7 @@ Official instructions: https://core.telegram.org/bots/tutorial
 
 Get and activate an OMDb key at https://www.omdbapi.com/apikey.aspx.
 
-Source ratings are labeled **website (unverified)**. External results must match the title/year or IMDb ID. Default external API budget: 200 requests per cycle; adjust to the quota on your account.
+Ratings are displayed as `IMDb : 8/10`, without a provider label. External results must match the title/year or IMDb ID. Default external API budget: 200 requests per cycle; adjust to the quota on your account.
 
 ## GitHub setup
 

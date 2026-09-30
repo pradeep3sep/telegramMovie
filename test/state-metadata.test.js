@@ -79,3 +79,17 @@ test('delivery intent and completion reach the remote history branch before retu
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('OMDb missing ratings do not become zero and preserve a valid website fallback', async () => {
+  for (const imdbRating of [undefined, null, '', 'N/A', '0', '0.0']) {
+    for (const fallback of [null, '8']) {
+      const client = new MetadataClient('test-key', 1, { get: async () => JSON.stringify({
+        Response: 'True', Type: 'movie', Title: 'Example', Year: '2024',
+        imdbID: 'tt1234567', imdbRating
+      }) });
+      const enriched = await client.enrich({ title: 'Example', year: '2024', rating: fallback });
+      assert.equal(enriched.rating, fallback);
+      assert.notEqual(enriched.rating, '0');
+    }
+  }
+});
