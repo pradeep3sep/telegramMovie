@@ -69,6 +69,7 @@ export function cleanTitle(rawTitle) {
     title = title.split(/\b(?:Hindi|English|Dual Audio|ORG|BluRay|HDRip|WEB-DL|480p|720p|1080p|2160p)\b/i)[0];
   }
   title = compact(title.replace(/\s*[-|–]*\s*Vegamovies\s*$/i, '')).replace(/[-|–:\s]+$/, '');
+  title = title.replace(/\s+(?:movie\s+)?download$/i, '').trim();
   return { title, year };
 }
 

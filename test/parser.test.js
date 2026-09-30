@@ -34,6 +34,7 @@ test('episodic shows and adult videos do not enter movie notifications', () => {
 });
 test('movie identity ignores release quality and title punctuation', () => {
   assert.deepEqual(cleanTitle('Download The Journey (2024) Hindi 1080p'), { title: 'The Journey', year: '2024' });
+  assert.deepEqual(cleanTitle('The Journey Movie Download Hindi Full Movie Watch 1080p'), { title: 'The Journey', year: null });
   assert.equal(movieKeys({ title: 'The-Journey', year: '2024' })[0], movieKeys({ title: 'The Journey', year: '2024' })[0]);
 });
 test('unsafe or absent URLs are rejected', () => {
