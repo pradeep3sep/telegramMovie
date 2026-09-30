@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+data/*.json
+data/*.tmp
+data/*.lock
+!data/.gitkeep
+output/
+test/fixtures/live-*.html
+*.zip

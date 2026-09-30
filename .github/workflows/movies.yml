@@ -1,0 +1,74 @@
+name: Movie notifications
+
+on:
+  schedule:
+    # 00:47, 06:47, 12:47, 18:47 UTC = 06:17, 12:17, 18:17, 00:17 IST
+    - cron: '47 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only (no Telegram posts or posting history changes)'
+        type: boolean
+        default: true
+      recovery:
+        description: 'Only for an uncertain delivery: check Telegram first'
+        type: choice
+        options: [none, mark-sent, retry]
+        default: none
+
+permissions:
+  contents: write
+
+concurrency:
+  group: movie-notifications
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
+      OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+      SOURCE_URLS: ${{ vars.SOURCE_URLS }}
+      MAX_CATALOG_PAGES_PER_RUN: ${{ vars.MAX_CATALOG_PAGES_PER_RUN }}
+      MAX_RECENT_PAGES_PER_RUN: ${{ vars.MAX_RECENT_PAGES_PER_RUN }}
+      MAX_MESSAGES_PER_RUN: ${{ vars.MAX_MESSAGES_PER_RUN }}
+      MAX_OMDB_REQUESTS_PER_RUN: ${{ vars.MAX_OMDB_REQUESTS_PER_RUN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Load persistent history
+        run: node scripts/github-state.js prepare
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Reconcile an uncertain delivery
+        if: github.event_name == 'workflow_dispatch' && inputs.recovery != 'none'
+        run: node scripts/resolve-delivery.js "$RECOVERY"
+        env:
+          RECOVERY: ${{ inputs.recovery }}
+      - name: Preview
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: npm run dry-run
+      - name: Send movie notifications
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
+        run: npm start
+      - name: Save final progress even after failures
+        if: always() && env.STATE_GIT_DIR != ''
+        run: node scripts/github-state.js checkpoint
+      - name: Upload preview
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: movie-preview
+          path: output/preview.json
+          if-no-files-found: ignore
+          retention-days: 7

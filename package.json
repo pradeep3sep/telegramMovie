@@ -1,0 +1,26 @@
+{
+  "name": "movie-telegram-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scheduled Hindi and English movie notifications for Telegram",
+  "type": "module",
+  "engines": {
+    "node": ">=20.13"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dry-run": "node src/index.js --dry-run",
+    "test": "node --test",
+    "check": "node scripts/check.js",
+    "telegram:setup": "node scripts/telegram-setup.js",
+    "status": "node scripts/status.js",
+    "resolve-delivery": "node scripts/resolve-delivery.js"
+  },
+  "dependencies": {
+    "cheerio": "1.0.0",
+    "dotenv": "16.6.1"
+  },
+  "devDependencies": {
+    "yaml": "2.8.1"
+  }
+}
