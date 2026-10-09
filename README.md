@@ -22,7 +22,7 @@ Default source: https://vegamovis.buzz/. HTTP redirects are followed, and listin
 
 Every live movie, including local tests, requires your private Telegram approval. Send /start to the bot in a private chat, run `npm run approval:setup`, and set the reported `TELEGRAM_APPROVAL_CHAT_ID` in .env (and GitHub Actions secrets if used). Only that account can approve or reject.
 
-The bot sends a movie preview with Approve and Reject buttons. Approve publishes to the group and then updates its name; Reject skips that listing. After either decision, the private approval message is deleted. Failed cleanup is retried on later runs; messages older than Telegram’s 48-hour deletion limit have their buttons removed. Many movies can wait in the saved queue; one approval request is shown at a time. Keep `npm run local` running for automatic delivery when you tap. Test runs wait up to their five-minute runtime, preserving pending approvals in a separate state.json.test.json file. If the process stops or its runtime expires, run it again to resume. Scheduled GitHub runs poll for approval for up to five minutes by default, then save the pending request and finish normally. They process responses while running or at the next run. Pending previews are refreshed after six hours (including older saved requests with no timestamp). Send /approval or /start privately to request a fresh preview on the next poll. Existing button responses are checked before a refresh, and approval is still required before group delivery. Temporary Telegram polling failures are retried without retrying group sends. Telegram retains unconsumed updates for up to 24 hours, so respond and resume within that window. Use one running instance of this dedicated bot; another update consumer can steal button responses. No movie is published when approval is missing.
+The bot sends a movie preview with Approve and Reject buttons. Approve publishes to the group and then updates its name; Reject skips that listing. After either decision, the private approval message is deleted. Failed cleanup is retried on later runs; messages older than Telegram’s 48-hour deletion limit have their buttons removed. Many movies can wait in the saved queue; one approval request is shown at a time. Keep `npm run local` running for automatic delivery when you tap. Test runs wait up to their five-minute runtime, preserving pending approvals in a separate state.json.test.json file. If the process stops or its runtime expires, run it again to resume. Scheduled GitHub runs poll for approval for up to five minutes by default, then save the pending request and finish normally. They process responses while running or at the next run. Pending previews are refreshed after four hours (including older saved requests with no timestamp). Send /approval or /start privately to request a fresh preview on the next poll. Existing button responses are checked before a refresh, and approval is still required before group delivery. Temporary Telegram polling failures are retried without retrying group sends. Telegram retains unconsumed updates for up to 24 hours, so respond and resume within that window. Use one running instance of this dedicated bot; another update consumer can steal button responses. No movie is published when approval is missing.
 
 ## Local setup
 
@@ -33,7 +33,7 @@ Use Node.js 20.13+ (GitHub Actions uses Node.js 22).
 3. Edit `.env`: fill in `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. `OMDB_API_KEY` is optional.
 4. Run `npm run dry-run` to inspect a live sample without sending. Results are printed and saved in `output/preview.json`.
 5. Run `npm run local:test` to request approval for **one movie** and verify Telegram. After you approve, it publishes one movie. Completed tests use fresh history on the next invocation, allowing repeats without changing normal posting history. Pending approvals resume. If no eligible movie is available or delivery fails, the command reports an error. `npm run local:testit` is an alias.
-6. Run `npm start` for a full cycle, or `npm run local` to repeat cycles locally every six hours.
+6. Run `npm start` for a full cycle, or `npm run local` to repeat cycles locally every four hours.
 
 Example on Windows:
 
@@ -43,11 +43,11 @@ npm run setup
 npm run dry-run
 # After filling and saving .env:
 npm run local:test
-# To keep running every six hours:
+# To keep running every four hours:
 npm run local
 ```
 
-`npm run local` runs immediately, then waits until the next six-hour interval. Keep the computer awake and terminal open; press Ctrl+C to stop. Failed cycles retain progress and are tried again at the next interval. Cycles do not overlap.
+`npm run local` runs immediately, then waits until the next four-hour interval. Keep the computer awake and terminal open; press Ctrl+C to stop. Failed cycles retain progress and are tried again at the next interval. Cycles do not overlap.
 
 Use `LOCAL_INTERVAL_HOURS` in `.env` to change the local interval. `MAX_MESSAGES_PER_RUN` and the page limits control full cycles; `local:test` temporarily limits the cycle to one post and one catalog page.
 
@@ -86,7 +86,7 @@ Ratings are displayed as `IMDb : 8/10`, without a provider label. External resul
 4. Download the **movie-preview** artifact to inspect the result.
 5. Run again with **dry_run** unchecked to begin posting.
 
-Scheduled runs occur every six hours: **00:17, 06:17, 12:17, and 18:17 IST**. GitHub can delay scheduled workflows. Public repository schedules are disabled after 60 days without repository activity; private repositories use the Actions allowance on your plan.
+Scheduled runs occur every four hours: **02:17, 06:17, 10:17, 14:17, 18:17, and 22:17 IST**. GitHub can delay scheduled workflows. Public repository schedules are disabled after 60 days without repository activity; private repositories use the Actions allowance on your plan.
 
 Documentation: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
 

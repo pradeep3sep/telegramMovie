@@ -6,7 +6,7 @@ import { runScheduled } from '../src/scheduler.js';
 
 async function main() {
   const testMode = process.argv.includes('--test');
-  const hours = Number(process.env.LOCAL_INTERVAL_HOURS?.trim() || 6);
+  const hours = Number(process.env.LOCAL_INTERVAL_HOURS?.trim() || 4);
   if (!Number.isInteger(hours) || hours < 1 || hours > 168) throw new Error('LOCAL_INTERVAL_HOURS must be an integer from 1 to 168.');
   const config = await loadConfig();
   if (!config.token || !config.chatId) throw new Error('Fill TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env first. npm run dry-run works without them.');

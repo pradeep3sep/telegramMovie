@@ -107,7 +107,7 @@ export class ApprovalClient {
       await this.cleanup(approval, state, { save, log });
       return approval.decision;
     }
-    if (!approval.messageId || !Number.isFinite(approval.sentAt) || now() - approval.sentAt >= 6 * 3600000 || refreshRequested) {
+    if (!approval.messageId || !Number.isFinite(approval.sentAt) || now() - approval.sentAt >= 4 * 3600000 || refreshRequested) {
       await sendPreview();
     } else {
       log('Reusing private approval preview: ' + movie.title + ' (message ' + approval.messageId + ').');

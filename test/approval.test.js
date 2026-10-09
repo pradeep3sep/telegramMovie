@@ -145,9 +145,9 @@ test('saved button response is processed before refreshing an old preview', asyn
   assert.equal(item.approval.messageId, 7);
 });
 
-test('six-hour preview refresh keeps an earlier button response valid and cleans all previews', async () => {
+test('four-hour preview refresh keeps an earlier button response valid and cleans all previews', async () => {
   const client = new ApprovalClient(config), state = emptyState(), item = pendingItem({ sentAt: 0 });
-  const timestamp = 6 * 3600000, deleted = [];
+  const timestamp = 4 * 3600000, deleted = [];
   let polls = 0, sends = 0;
   client.client.call = async (method, data) => {
     if (method === 'getUpdates') return ++polls === 1 ? [] : [callback('saved-token')];

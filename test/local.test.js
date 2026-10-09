@@ -21,9 +21,9 @@ test('local setup creates .env once and preserves credentials on repeated setup'
   }
 });
 
-test('local scheduler waits the remainder of six hours and runs cycles sequentially', async () => {
+test('local scheduler waits the remainder of four hours and runs cycles sequentially', async () => {
   const controller = new AbortController();
-  const interval = 6 * 3600000;
+  const interval = 4 * 3600000;
   let timestamp = 0, cycles = 0, active = 0;
   const waits = [];
   await runScheduled({
