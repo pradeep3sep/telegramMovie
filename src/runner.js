@@ -1,10 +1,10 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { parseListing, parseMovie, exclusion, movieKeys } from './parser.js';
-import { getText } from './http.js';
+import { getPage } from './http.js';
 import { confirmDelivery } from './state.js';
 
 export async function runCycle(config, state, {
-  dryRun = false, save = async () => {}, get = getText,
+  dryRun = false, save = async () => {}, get = getPage,
   telegram, approval, metadata, sleepImpl = sleep, log = console.log,
   now = () => Date.now(), previewLimit = 3
 } = {}) {
@@ -38,7 +38,10 @@ export async function runCycle(config, state, {
     for (let count = 0; url && count < limit && withinBudget(); count++) {
       if (visited.has(url)) throw new Error('Pagination loop detected.');
       visited.add(url);
-      const parsed = parseListing(await get(url), url);
+      const page = await get(url);
+      // Resolve links and check their origin against the page after HTTP redirects.
+      const parsed = parseListing(typeof page === 'string' ? page : page.html,
+        typeof page === 'string' ? url : page.url);
       const allKnown = parsed.entries.every(entry => state.items[entry.id]);
       for (const entry of parsed.entries) {
         if (state.items[entry.id]) continue;
@@ -107,7 +110,9 @@ export async function runCycle(config, state, {
     let movie = item.movie;
     try {
       if (!movie) {
-        movie = parseMovie(await get(item.url), item.url, item);
+        const page = await get(item.url);
+        movie = parseMovie(typeof page === 'string' ? page : page.html,
+          typeof page === 'string' ? item.url : page.url, item);
         await sleepImpl(config.requestDelay);
         if (movie.excluded) {
           item.status = 'filtered';

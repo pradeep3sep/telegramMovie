@@ -7,7 +7,7 @@ export class HttpError extends Error {
   }
 }
 
-export async function getText(url, { fetchImpl = fetch, sleepImpl = sleep, attempts = 3 } = {}) {
+export async function getPage(url, { fetchImpl = fetch, sleepImpl = sleep, attempts = 3 } = {}) {
   const host = new URL(url).hostname;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -23,11 +23,15 @@ export async function getText(url, { fetchImpl = fetch, sleepImpl = sleep, attem
         await sleepImpl(Number.isFinite(retry) && retry > 0 ? Math.min(retry * 1000, 60000) : 1500 * 2 ** attempt);
         continue;
       }
-      return await response.text();
+      return { html: await response.text(), url: response.url || url };
     } catch (error) {
       if (error instanceof HttpError) throw error;
       if (attempt === attempts - 1) throw new Error('Could not fetch ' + host + ' after retries.');
       await sleepImpl(1500 * 2 ** attempt);
     }
   }
+}
+
+export async function getText(url, options) {
+  return (await getPage(url, options)).html;
 }

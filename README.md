@@ -2,7 +2,7 @@
 
 A Node.js job that checks movie listings, opens their detail pages, and sends one Telegram post per new Hindi/English movie with a poster, title, year, IMDb rating, and download buttons.
 
-Default source: https://vegamovis.baby/
+Default source: https://vegamovis.buzz/. HTTP redirects are followed, and listing/detail links are resolved against the final page URL so source domain changes do not break pagination.
 
 ## Behavior
 

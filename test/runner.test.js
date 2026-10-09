@@ -211,3 +211,39 @@ test('many movies remain queued while one approval waits, then the next movie is
   assert.equal(Object.values(state.items).filter(item => item.status === 'queued').length, 2);
   assert.deepEqual(offered, ['Movie 0', 'Movie 0', 'Movie 1']);
 });
+
+
+test('redirected catalog uses the final origin and preserves pagination progress across runs', async () => {
+  const state = emptyState();
+  const destination = 'https://new.example/';
+  const redirectedListing = listing.replaceAll('href="/', 'href="' + destination)
+    .replace('</body>', '<a rel="next" href="' + destination + 'page/2/">Next</a></body>');
+  let sends = 0;
+  const deps = dependencies({
+    get: async url => url === source.url
+      ? { html: redirectedListing, url: destination }
+      : url === destination + 'page/2/' ? { html: listing, url }
+        : { html: detail, url },
+    telegram: { send: async () => ({ message_id: ++sends }) }
+  });
+  await runCycle(config, state, deps);
+  assert.equal(state.sources[source.url].backfillUrl, destination + 'page/2/');
+  assert.equal(state.sources[source.url].backfillDone, false);
+  assert.equal(sends, 1);
+  await runCycle(config, state, deps);
+  assert.equal(state.sources[source.url].backfillDone, true);
+  assert.equal(sends, 1);
+});
+
+test('old queued detail URLs resolve relative links against the redirected page', async () => {
+  const state = emptyState();
+  state.items.old = { status: 'queued', firstSeen: '2024', url: source.url + 'journey-2024/' };
+  let sent;
+  await runCycle({ ...config, sources: [] }, state, dependencies({
+    get: async () => ({ html: detail, url: 'https://new.example/journey-2024/' }),
+    telegram: { send: async movie => { sent = movie; return { message_id: 1 }; } }
+  }));
+  assert.equal(sent.url, 'https://new.example/journey-2024/');
+  assert.equal(sent.poster, 'https://new.example/poster.jpg');
+  assert.equal(state.items.old.status, 'sent');
+});

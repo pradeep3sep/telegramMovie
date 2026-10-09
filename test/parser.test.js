@@ -52,3 +52,9 @@ test('missing and zero source ratings stay unavailable instead of using the deno
   }
   assert.equal(parseMovie(detail.replace('7.3/10', '10/10'), base).rating, '10');
 });
+
+
+test('pagination to an unrelated origin is still rejected', () => {
+  const html = listing.replace('href="/page/2/"', 'href="https://unrelated.example/page/2/"');
+  assert.throws(() => parseListing(html, base), /Unexpected cross-site pagination/);
+});
