@@ -38,6 +38,7 @@ export async function loadConfig(env = process.env) {
     maxMessages: integer(env, 'MAX_MESSAGES_PER_RUN', 500, 1, 10000),
     omdbBudget: integer(env, 'MAX_OMDB_REQUESTS_PER_RUN', 200, 0, 10000),
     runtimeMs: integer(env, 'MAX_RUNTIME_MINUTES', 150, 1, 150) * 60000,
+    approvalWaitMs: integer(env, 'APPROVAL_WAIT_MINUTES', 5, 1, 150) * 60000,
     requestDelay: integer(env, 'REQUEST_DELAY_MS', 1500, 250, 60000),
     telegramDelay: integer(env, 'TELEGRAM_DELAY_MS', 3200, 3200, 60000)
   };

@@ -8,6 +8,12 @@ export class TelegramError extends Error {
     this.description = description || '';
   }
 }
+export class TelegramRequestError extends Error {
+  constructor(method) {
+    super('Telegram ' + method + ' failed after retries. Pending approvals are preserved; resume on the next run.');
+    this.method = method;
+  }
+}
 export class UncertainDeliveryError extends Error {
   constructor() {
     super('Telegram delivery could not be confirmed. Posting is paused to prevent a duplicate; check the group and resolve the pending delivery.');
@@ -48,6 +54,7 @@ export class TelegramClient {
     this.sleep = sleepImpl;
   }
   async call(method, data = {}) {
+    const retryableRead = ['getMe', 'getChat', 'getWebhookInfo', 'getUpdates'].includes(method);
     for (let attempt = 0; attempt < 4; attempt++) {
       let response, body;
       try {
@@ -58,9 +65,19 @@ export class TelegramClient {
           signal: AbortSignal.timeout(45000)
         });
         body = await response.json();
-      } catch { throw new UncertainDeliveryError(); }
-      // A server-side failure can happen after a successful send; do not retry blindly.
-      if (response.status >= 500) throw new UncertainDeliveryError();
+      } catch {
+        if (!retryableRead) throw new UncertainDeliveryError();
+        if (attempt === 3) throw new TelegramRequestError(method);
+        await this.sleep(1500 * 2 ** attempt);
+        continue;
+      }
+      // Reads can safely retry; a send may already have reached Telegram.
+      if (response.status >= 500) {
+        if (!retryableRead) throw new UncertainDeliveryError();
+        if (attempt === 3) throw new TelegramRequestError(method);
+        await this.sleep(1500 * 2 ** attempt);
+        continue;
+      }
       if (body.ok) return body.result;
       // Telegram explicitly rejected the old group ID, so retry with its replacement.
       const migratedId = body.parameters?.migrate_to_chat_id;
@@ -79,7 +96,8 @@ export class TelegramClient {
     }
   }
   async verify() {
-    await this.call('getMe');
+    const bot = await this.call('getMe');
+    this.username = bot.username;
     const chat = await this.call('getChat', { chat_id: this.chatId });
     this.chatType = chat.type;
     if (!['group', 'supergroup', 'channel', 'private'].includes(chat.type)) throw new Error('Unsupported Telegram destination.');

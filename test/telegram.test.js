@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TelegramClient, UncertainDeliveryError, formatPost } from '../src/telegram.js';
+import { TelegramClient, TelegramRequestError, UncertainDeliveryError, formatPost } from '../src/telegram.js';
 
 const movie = {
   title: 'Example & Journey', year: '2024', languages: ['Hindi', 'English'], rating: '7.3',
@@ -139,4 +139,43 @@ test('Telegram error identifies the method and reason without exposing the token
     assert.equal(error.message.includes('secret-token'), false);
     return true;
   });
+});
+
+
+for (const failure of ['network', 'server']) {
+  test('approval polling retries transient ' + failure + ' failures with the same offset', async () => {
+    let calls = 0;
+    const waits = [];
+    const client = new TelegramClient({ token: 'test', chatId: '123' }, {
+      fetchImpl: async (url, init) => {
+        assert.ok(url.endsWith('/getUpdates'));
+        assert.deepEqual(JSON.parse(init.body), { offset: 123, timeout: 20 });
+        if (++calls === 1) {
+          if (failure === 'network') throw new Error('Connection reset');
+          return response(502, { ok: false });
+        }
+        return response(200, { ok: true, result: [{ update_id: 123 }] });
+      },
+      sleepImpl: async ms => waits.push(ms)
+    });
+    assert.deepEqual(await client.call('getUpdates', { offset: 123, timeout: 20 }), [{ update_id: 123 }]);
+    assert.equal(calls, 2);
+    assert.deepEqual(waits, [1500]);
+  });
+}
+
+test('exhausted polling retries identify getUpdates without claiming a group delivery happened', async () => {
+  let calls = 0;
+  const client = new TelegramClient({ token: 'secret-token', chatId: '123' }, {
+    fetchImpl: async () => { calls++; throw new Error('Network failed: secret-token'); },
+    sleepImpl: async () => {}
+  });
+  await assert.rejects(client.call('getUpdates'), error => {
+    assert.ok(error instanceof TelegramRequestError);
+    assert.match(error.message, /getUpdates.*Pending approvals are preserved/);
+    assert.equal(error.message.includes('secret-token'), false);
+    assert.equal(error.message.includes('resolve the pending delivery'), false);
+    return true;
+  });
+  assert.equal(calls, 4);
 });

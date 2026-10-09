@@ -22,7 +22,7 @@ Default source: https://vegamovis.buzz/. HTTP redirects are followed, and listin
 
 Every live movie, including local tests, requires your private Telegram approval. Send /start to the bot in a private chat, run `npm run approval:setup`, and set the reported `TELEGRAM_APPROVAL_CHAT_ID` in .env (and GitHub Actions secrets if used). Only that account can approve or reject.
 
-The bot sends a movie preview with Approve and Reject buttons. Approve publishes to the group and then updates its name; Reject skips that listing. After either decision, the private approval message is deleted. Failed cleanup is retried on later runs; messages older than Telegram’s 48-hour deletion limit have their buttons removed. Many movies can wait in the saved queue; one approval request is shown at a time. Keep `npm run local` running for automatic delivery when you tap. Test runs wait up to their five-minute runtime, preserving pending approvals in a separate state.json.test.json file. If the process stops or its runtime expires, run it again to resume. Scheduled GitHub runs process responses while running or at the next run. Telegram retains unconsumed updates for up to 24 hours, so respond and resume within that window. Use one running instance of this dedicated bot; another update consumer can steal button responses. No movie is published when approval is missing.
+The bot sends a movie preview with Approve and Reject buttons. Approve publishes to the group and then updates its name; Reject skips that listing. After either decision, the private approval message is deleted. Failed cleanup is retried on later runs; messages older than Telegram’s 48-hour deletion limit have their buttons removed. Many movies can wait in the saved queue; one approval request is shown at a time. Keep `npm run local` running for automatic delivery when you tap. Test runs wait up to their five-minute runtime, preserving pending approvals in a separate state.json.test.json file. If the process stops or its runtime expires, run it again to resume. Scheduled GitHub runs poll for approval for up to five minutes by default, then save the pending request and finish normally. They process responses while running or at the next run. Pending previews are refreshed after six hours (including older saved requests with no timestamp). Send /approval or /start privately to request a fresh preview on the next poll. Existing button responses are checked before a refresh, and approval is still required before group delivery. Temporary Telegram polling failures are retried without retrying group sends. Telegram retains unconsumed updates for up to 24 hours, so respond and resume within that window. Use one running instance of this dedicated bot; another update consumer can steal button responses. No movie is published when approval is missing.
 
 ## Local setup
 
@@ -125,10 +125,11 @@ Edit `sources.json` for other WordPress-compatible sites. Other layouts need the
 | `MAX_MESSAGES_PER_RUN` | 500 | Maximum posts per cycle |
 | `MAX_OMDB_REQUESTS_PER_RUN` | 200 | External lookup budget |
 | `MAX_RUNTIME_MINUTES` | 150 | Application time budget |
+| `APPROVAL_WAIT_MINUTES` | 5 | Maximum approval polling time per movie; pending requests resume on the next run |
 | `REQUEST_DELAY_MS` | 1500 | Source request delay |
 | `TELEGRAM_DELAY_MS` | 3200 | Group posting delay |
 
-The first four limits can be changed through same-named GitHub Actions variables. Local settings come from `.env`. The job timeout is 180 minutes.
+The first four limits and `APPROVAL_WAIT_MINUTES` can be changed through same-named GitHub Actions variables. Local settings come from `.env`. The job timeout is 180 minutes.
 
 Limits bound each cycle, not the total import. Queue and cursors persist. New movies may wait behind the initial queue. Changing source domains requires planning history migration because domains are part of listing identity.
 

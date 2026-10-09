@@ -113,3 +113,101 @@ test('old messages lose buttons when Telegram refuses deletion', async () => {
   assert.deepEqual(calls, ['deleteMessage', 'editMessageReplyMarkup']);
   assert.equal(approval.cleaned, true);
 });
+
+
+const pendingItem = extra => ({ approval: { token: 'saved-token', owner: '42', destination: '-123', messageId: 7, ...extra } });
+
+test('legacy pending preview is refreshed, retaining its token and old message for cleanup', async () => {
+  const client = new ApprovalClient(config), state = emptyState(), item = pendingItem();
+  const calls = [];
+  client.client.call = async (method, data) => {
+    calls.push(method);
+    if (method === 'getUpdates') { assert.equal(data.timeout, 0); return []; }
+    assert.equal(method, 'sendMessage');
+    assert.equal(data.reply_markup.inline_keyboard.at(-1)[0].callback_data, 'approve:saved-token');
+    return { message_id: 8 };
+  };
+  assert.equal(await client.decide(movie, item, state, { ...opts, now: () => 600000 }), null);
+  assert.deepEqual(calls, ['getUpdates', 'sendMessage']);
+  assert.equal(item.approval.messageId, 8);
+  assert.equal(item.approval.sentAt, 600000);
+  assert.deepEqual(item.approval.previousMessageIds, [7]);
+});
+
+test('saved button response is processed before refreshing an old preview', async () => {
+  const client = new ApprovalClient(config), state = emptyState(), item = pendingItem();
+  client.client.call = async method => {
+    if (method === 'sendMessage') assert.fail('A saved approval must not request approval again');
+    if (method === 'getUpdates') return [callback('saved-token')];
+    return true;
+  };
+  assert.equal(await client.decide(movie, item, state, opts), 'approved');
+  assert.equal(item.approval.messageId, 7);
+});
+
+test('six-hour preview refresh keeps an earlier button response valid and cleans all previews', async () => {
+  const client = new ApprovalClient(config), state = emptyState(), item = pendingItem({ sentAt: 0 });
+  const timestamp = 6 * 3600000, deleted = [];
+  let polls = 0, sends = 0;
+  client.client.call = async (method, data) => {
+    if (method === 'getUpdates') return ++polls === 1 ? [] : [callback('saved-token')];
+    if (method === 'sendMessage') { sends++; return { message_id: 8 }; }
+    if (method === 'deleteMessage') deleted.push(data.message_id);
+    return true;
+  };
+  assert.equal(await client.decide(movie, item, state, { ...opts, now: () => timestamp, deadline: timestamp + 600000 }), 'approved');
+  assert.equal(sends, 1);
+  assert.deepEqual(deleted, [7, 8]);
+});
+
+for (const from of [42, 99]) {
+  test('fresh-preview commands require the configured private user (' + from + ')', async () => {
+    const client = new ApprovalClient(config), state = emptyState(), item = pendingItem({ sentAt: 600000 });
+    let sends = 0;
+    client.client.call = async method => {
+      if (method === 'getUpdates') return [{ update_id: 4, message: { from: { id: from }, chat: { id: 42, type: 'private' }, text: '/approval' } }];
+      if (method === 'sendMessage') { sends++; return { message_id: 8 }; }
+      return true;
+    };
+    assert.equal(await client.decide(movie, item, state, { ...opts, now: () => 600000 }), null);
+    assert.equal(sends, from === 42 ? 1 : 0);
+  });
+}
+
+test('approval polling finishes after five minutes with the request still pending', async () => {
+  const client = new ApprovalClient(config), state = emptyState(), item = {};
+  let timestamp = 0, polls = 0;
+  client.client.call = async (method, data) => {
+    if (method === 'sendMessage') return { message_id: 7 };
+    assert.equal(method, 'getUpdates');
+    polls++;
+    timestamp += data.timeout * 1000;
+    return [];
+  };
+  assert.equal(await client.decide(movie, item, state, { ...opts, deadline: 150 * 60000, now: () => timestamp }), null);
+  assert.equal(timestamp, 5 * 60000);
+  assert.equal(polls, 15);
+  assert.equal(item.approval.decision, undefined);
+  assert.equal(item.approval.messageId, 7);
+  assert.equal(state.pendingDelivery, null);
+});
+
+
+test('cleanup resumes past an old preview whose buttons were already removed', async () => {
+  const { TelegramError } = await import('../src/telegram.js');
+  const client = new ApprovalClient(config), state = emptyState();
+  const approval = { owner: '42', messageId: 8, previousMessageIds: [7], decision: 'approved' };
+  const deleted = [];
+  client.client.call = async (method, data) => {
+    if (data.message_id === 7) {
+      if (method === 'deleteMessage') throw new TelegramError(400, "Bad Request: message can't be deleted");
+      throw new TelegramError(400, 'Bad Request: message is not modified');
+    }
+    assert.equal(method, 'deleteMessage');
+    deleted.push(data.message_id);
+    return true;
+  };
+  await client.cleanup(approval, state, opts);
+  assert.deepEqual(deleted, [8]);
+  assert.equal(approval.cleaned, true);
+});
