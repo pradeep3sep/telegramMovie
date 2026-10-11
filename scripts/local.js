@@ -35,7 +35,7 @@ async function main() {
   });
   try {
     if (testMode) {
-      console.log('Local Telegram test: one movie will be sent after your private Telegram approval. Pending approvals resume on the next run.');
+      console.log('Local Telegram test: one movie will be posted directly to the group.');
       await cycle();
     } else {
       console.log('Running locally every ' + hours + ' hours. Keep this terminal open; press Ctrl+C to stop.');

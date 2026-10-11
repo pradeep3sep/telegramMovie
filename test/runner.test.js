@@ -152,66 +152,33 @@ test('local test fails visibly when no eligible movie can be sent', async () => 
 });
 
 
-test('group send and rename happen only after approval', async () => {
+test('posts directly despite legacy approval settings or a supplied approval client', async () => {
   const events = [];
   await runCycle({ ...config, approvalChatId: '42' }, emptyState(), dependencies({
-    approval: { decide: async () => { events.push('approved'); return 'approved'; } },
+    approval: {
+      cleanupDecided: async () => assert.fail('Approval cleanup called'),
+      decide: async () => assert.fail('Approval requested')
+    },
     telegram: { send: async () => { events.push('sent'); return { message_id: 1 }; }, renameGroup: async () => events.push('renamed') }
   }));
-  assert.deepEqual(events, ['approved', 'sent', 'renamed']);
+  assert.deepEqual(events, ['sent', 'renamed']);
 });
 
-test('pending approval does not send or rename, then resumes', async () => {
-  const state = emptyState();
-  let approved = false, sends = 0;
-  const deps = dependencies({
-    approval: { decide: async () => approved ? 'approved' : null },
-    telegram: { send: async () => ({ message_id: ++sends }), renameGroup: async () => { assert.equal(approved, true); } }
-  });
-  const first = await runCycle({ ...config, approvalChatId: '42' }, state, deps);
-  assert.equal(first.summary.awaitingApproval, 1);
-  assert.equal(sends, 0);
-  assert.equal(state.pendingDelivery, null);
-  approved = true;
-  await runCycle({ ...config, approvalChatId: '42' }, state, deps);
-  assert.equal(sends, 1);
-});
-
-test('rejection skips a movie permanently without posting it', async () => {
-  const state = emptyState();
-  const deps = dependencies({ approval: { decide: async () => 'rejected' },
-    telegram: { send: async () => assert.fail('Rejected movie sent'), renameGroup: async () => assert.fail('Group renamed') } });
-  await runCycle({ ...config, approvalChatId: '42' }, state, deps);
-  await runCycle({ ...config, approvalChatId: '42' }, state, deps);
-  assert.ok(Object.values(state.items).some(item => item.status === 'rejected'));
-});
-
-test('configured approval cannot be bypassed by a missing client', async () => {
-  await assert.rejects(runCycle({ ...config, approvalChatId: '42' }, emptyState(), dependencies()), /Approval client is required/);
-});
-
-
-test('many movies remain queued while one approval waits, then the next movie is offered', async () => {
+test('legacy pending approvals post the full queue without waiting and remain deduplicated', async () => {
   const state = emptyState();
   for (let i = 0; i < 3; i++) state.items['movie-' + i] = { status: 'queued', firstSeen: String(i),
+    approval: { owner: '42', messageId: 100 + i },
     movie: { title: 'Movie ' + i, year: '2024', languages: ['Hindi'], links: [], rating: 7 } };
-  const offered = [];
-  let approveFirst = false, sends = 0;
-  const deps = dependencies({
-    approval: { decide: async movie => { offered.push(movie.title); return approveFirst && movie.title === 'Movie 0' ? 'approved' : null; } },
-    telegram: { send: async () => ({ message_id: ++sends }) }
-  });
+  state.items.rejected = { status: 'rejected', firstSeen: '0', approval: { decision: 'rejected' } };
+  let sends = 0;
+  const deps = dependencies({ telegram: { send: async () => ({ message_id: ++sends }) } });
   const cfg = { ...config, sources: [], approvalChatId: '42' };
+  assert.equal((await runCycle(cfg, state, deps)).summary.sent, 3);
+  assert.equal(Object.values(state.items).filter(item => item.status === 'queued').length, 0);
+  assert.equal(state.items.rejected.status, 'rejected');
   await runCycle(cfg, state, deps);
-  assert.equal(Object.values(state.items).filter(item => item.status === 'queued').length, 3);
-  assert.equal(sends, 0);
-  approveFirst = true;
-  await runCycle(cfg, state, deps);
-  assert.equal(sends, 1);
-  assert.equal(Object.values(state.items).filter(item => item.status === 'queued').length, 2);
-  assert.deepEqual(offered, ['Movie 0', 'Movie 0', 'Movie 1']);
+  assert.equal(sends, 3);
 });
-
 
 test('redirected catalog uses the final origin and preserves pagination progress across runs', async () => {
   const state = emptyState();
